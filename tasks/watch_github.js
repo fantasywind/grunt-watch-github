@@ -8,6 +8,9 @@
 
 'use strict';
 
+var http = require('http');
+var ip = require('ip');
+
 module.exports = function(grunt) {
 
   // Please see the Grunt documentation for more information regarding task
@@ -16,34 +19,56 @@ module.exports = function(grunt) {
   grunt.registerMultiTask('watch_github', 'Watch github push hooker', function() {
     // Merge task-specific and/or target-specific options with these defaults.
     var options = this.options({
-      punctuation: '.',
-      separator: ', '
+      bind_address: '127.0.0.1',
+      bind_port: 9090
     });
 
-    // Iterate over all specified file groups.
-    this.files.forEach(function(f) {
-      // Concat specified files.
-      var src = f.src.filter(function(filepath) {
-        // Warn on and remove invalid source files (if nonull was set).
-        if (!grunt.file.exists(filepath)) {
-          grunt.log.warn('Source file "' + filepath + '" not found.');
-          return false;
+    var bind_address = options.bind_address;
+    var bind_port = options.bind_port;
+
+    if (bind_address === '127.0.0.1') {
+      throw new Error('Invalid server ip');
+    }
+
+    var done = this.async();
+
+    grunt.config.set('rebuild', false);
+
+    var server = http.createServer(function (req, res) {
+      // check format
+      if (req.headers['content-type'] !== 'application/json') {
+        throw new Error('Invalid hook data passed');
+      }
+
+      var body = ''
+      req.on('data', function (data) {
+        body += data;
+      });
+      req.on('end', function () {
+        var info = JSON.parse(body);
+
+        // chaek repository
+        if (info.ref !== 'refs/heads/master') {
+          grunt.log.warn('pushed un-master commit.');
         } else {
-          return true;
+          grunt.log.ok('github fetch new update, rebuild now...');
+          grunt.config.set('rebuild', true);
+          server.close();
+          done();
         }
-      }).map(function(filepath) {
-        // Read file source.
-        return grunt.file.read(filepath);
-      }).join(grunt.util.normalizelf(options.separator));
+      });
 
-      // Handle options.
-      src += options.punctuation;
-
-      // Write the destination file.
-      grunt.file.write(f.dest, src);
-
-      // Print a success message.
-      grunt.log.writeln('File "' + f.dest + '" created.');
+      // send ok
+      res.setHeader('Content-Type', 'application/json');
+      res.writeHead(200);
+      res.end(JSON.stringify({
+        status: true
+      }));
+    });
+    server.listen(bind_port);
+    grunt.log.ok('Hook listener on port', bind_port);
+    server.on('close', function (){
+      grunt.log.ok('GitHub watch server down.');
     });
   });
 
