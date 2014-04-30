@@ -9,7 +9,6 @@
 'use strict';
 
 var http = require('http');
-var ip = require('ip');
 
 module.exports = function(grunt) {
 
