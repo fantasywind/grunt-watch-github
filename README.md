@@ -33,8 +33,10 @@ In your project's Gruntfile, add a section named `watch_github` to the data obje
 grunt.initConfig({
   watch_github: {
     repository: {
-      bind_address: 'your_server_ip',
-      bind_port: 'your_server_hooker_listen_port'
+      options: {
+        bind_address: 'your_server_ip',
+        bind_port: 'your_server_hooker_listen_port'
+      }
     },
   },
 });
